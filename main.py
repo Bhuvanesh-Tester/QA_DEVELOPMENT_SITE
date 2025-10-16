@@ -5,27 +5,28 @@ import os
 
 app = FastAPI()
 
-# Add CORS middleware
+# ✅ Enable CORS for your frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can restrict this later to your frontend URL
+    allow_origins=["*"],  # Replace with your frontend URL later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Database configuration
+# ✅ Database configuration (Supabase)
 DB_HOST = os.getenv("DB_HOST", "aws-1-us-east-2.pooler.supabase.com")
 DB_NAME = os.getenv("DB_NAME", "postgres")
-DB_USER = os.getenv("DB_USER", "postgres.qfdhtoxzdnnfbnhkzkyb")
+DB_USER = os.getenv("DB_USER", "postgres")  # Use default 'postgres' user
 DB_PASS = os.getenv("DB_PASS", "Dbbhuvi@123")
+DB_PORT = os.getenv("DB_PORT", "6543")  # For pooled connections
 
-# Root endpoint
+# ✅ Root endpoint
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the FastAPI backend!"}
 
-# Login endpoint
+# ✅ Login endpoint
 @app.post("/login")
 async def login(request: Request):
     data = await request.json()
@@ -34,7 +35,7 @@ async def login(request: Request):
 
     try:
         conn = psycopg2.connect(
-            host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS
+            host=DB_HOST, port=DB_PORT, database=DB_NAME, user=DB_USER, password=DB_PASS
         )
         cur = conn.cursor()
         cur.execute("SELECT * FROM users WHERE email=%s AND password=%s", (email, password))
