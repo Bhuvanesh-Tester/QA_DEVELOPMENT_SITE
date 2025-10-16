@@ -7,7 +7,7 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    const response = await fetch("https://your-backend-url.onrender.com/login", {
+    const response = await fetch("https://qa-development-site.onrender.com/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
