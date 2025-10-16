@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -7,21 +8,53 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    const response = await fetch("https://qa-development-site.onrender.com/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch("https://qa-development-site.onrender.com/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await response.json();
-    setMessage(data.message);
+      const data = await response.json();
+      setMessage(data.message);
+
+      if (data.message === "Login successful!") {
+        // Redirect to home page
+        window.location.href = "/home";
+      }
+    } catch (error) {
+      console.error("Error logging in:", error);
+      setMessage("Something went wrong. Please try again.");
+    }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%)" }}>
-      <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 4px 24px rgba(0,0,0,0.10)", padding: "40px 32px", width: "100%", maxWidth: "370px", textAlign: "center" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%)",
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "16px",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+          padding: "40px 32px",
+          width: "100%",
+          maxWidth: "370px",
+          textAlign: "center",
+        }}
+      >
         <div style={{ marginBottom: "24px" }}>
-          <img src="https://img.icons8.com/fluency/96/000000/user-male-circle.png" alt="login icon" style={{ width: "64px", marginBottom: "8px" }} />
+          <img
+            src="https://img.icons8.com/fluency/96/000000/user-male-circle.png"
+            alt="login icon"
+            style={{ width: "64px", marginBottom: "8px" }}
+          />
           <h2 style={{ margin: 0, color: "#333", fontWeight: 700, fontSize: "2rem" }}>Login</h2>
         </div>
         <form onSubmit={handleLogin}>
@@ -49,13 +82,32 @@ function App() {
               required
             />
           </div>
-          <button type="submit" style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "#74ebd5", color: "#222", fontWeight: 700, fontSize: "1.1rem", border: "none", cursor: "pointer", transition: "background 0.2s" }}>
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              padding: "12px",
+              borderRadius: "8px",
+              background: "#74ebd5",
+              color: "#222",
+              fontWeight: 700,
+              fontSize: "1.1rem",
+              border: "none",
+              cursor: "pointer",
+              transition: "background 0.2s",
+            }}
+          >
             Login
           </button>
         </form>
-        {message && <p style={{ marginTop: "18px", color: message.includes("success") ? "#22bb33" : "#e74c3c", fontWeight: 500 }}>{message}</p>}
+        {message && (
+          <p style={{ marginTop: "18px", color: message.includes("success") ? "#22bb33" : "#e74c3c", fontWeight: 500 }}>
+            {message}
+          </p>
+        )}
       </div>
     </div>
   );
 }
+
 export default App;
