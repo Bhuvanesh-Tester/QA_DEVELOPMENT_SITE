@@ -1,72 +1,74 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-import psycopg2
-from psycopg2 import pool
+from supabase import create_client, Client
 import os
+from passlib.hash import bcrypt  # Optional: for secure password hashing
 
 app = FastAPI()
 
-# ✅ Enable CORS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace "*" with frontend URL in production
+    allow_origins=["*"],  # Replace "*" with your frontend URL in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Database configuration (Supabase pooler)
-DB_HOST = os.getenv("DB_HOST", "aws-1-us-east-2.pooler.supabase.com")
-DB_NAME = os.getenv("DB_NAME", "postgres")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASS = os.getenv("DB_PASS", "Dbbhuvi@123")
-DB_PORT = int(os.getenv("DB_PORT", 6543))  # Use pooler port 6543
 
-# ✅ Create connection pool
-try:
-    db_pool = psycopg2.pool.SimpleConnectionPool(
-        minconn=1,
-        maxconn=10,
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASS
-    )
-    if db_pool:
-        print("Connection pool created successfully!")
-except Exception as e:
-    print(f"Error creating connection pool: {str(e)}")
-    db_pool = None
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xyz.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "YOUR_SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ✅ Root endpoint
+
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the FastAPI backend!"}
+    return {"message": "Welcome to FastAPI backend with Supabase!"}
 
-# ✅ Login endpoint
+@app.post("/register")
+async def register(request: Request):
+    data = await request.json()
+    email = data.get("email")
+    password = data.get("password")
+
+    
+    hashed_password = bcrypt.hash(password)
+
+    try:
+        response = supabase.table("users").insert({
+            "email": email,
+            "password": hashed_password
+        }).execute()
+
+        if response.data:
+            return {"message": "User registered successfully!"}
+        else:
+            return {"message": "Registration failed."}
+    except Exception as e:
+        return {"message": f"Supabase error: {str(e)}"}
+
+
 @app.post("/login")
 async def login(request: Request):
     data = await request.json()
     email = data.get("email")
     password = data.get("password")
 
-    if not db_pool:
-        return {"message": "Database connection not available"}
-
     try:
-        # Get connection from pool
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE email=%s AND password=%s", (email, password))
-        user = cur.fetchone()
-        cur.close()
-        db_pool.putconn(conn)  # Return connection to pool
+        # Fetch user by email
+        response = supabase.table("users").select("*").eq("email", email).execute()
+        users = response.data
 
-        if user:
+        if not users:
+            return {"message": "Invalid email or password."}
+
+        user = users[0]
+
+        # Verify hashed password
+        if bcrypt.verify(password, user["password"]):
             return {"message": "Login successful!"}
         else:
             return {"message": "Invalid email or password."}
 
     except Exception as e:
-        return {"message": f"Database error: {str(e)}"}
+        return {"message": f"Supabase error: {str(e)}"}
