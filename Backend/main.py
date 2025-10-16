@@ -8,17 +8,24 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # later restrict to your frontend URL
+    allow_origins=["*"],  # You can restrict this later to your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-DB_HOST = os.getenv("DB_HOST", "your-supabase-host")
-DB_NAME = os.getenv("DB_NAME", "your-db-name")
-DB_USER = os.getenv("DB_USER", "your-db-user")
-DB_PASS = os.getenv("DB_PASS", "your-db-password")
+# Database configuration
+DB_HOST = os.getenv("DB_HOST", "db.qfdhtoxzdnnfbnhkzkyb.supabase.co")
+DB_NAME = os.getenv("DB_NAME", "postgres")
+DB_USER = os.getenv("DB_USER", "test@example.com")
+DB_PASS = os.getenv("DB_PASS", "12345")
 
+# Root endpoint
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the FastAPI backend!"}
+
+# Login endpoint
 @app.post("/login")
 async def login(request: Request):
     data = await request.json()
@@ -39,5 +46,6 @@ async def login(request: Request):
             return {"message": "Login successful!"}
         else:
             return {"message": "Invalid email or password."}
+
     except Exception as e:
         return {"message": f"Database error or not configured: {str(e)}"}
