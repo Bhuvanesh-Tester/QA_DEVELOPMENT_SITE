@@ -6,27 +6,23 @@ function App() {
   const [message, setMessage] = useState("");
 
   const handleLogin = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
+  setMessage("Checking credentials...");
 
-    try {
-      const response = await fetch("https://qa-development-site.onrender.com/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+  try {
+    const response = await fetch("https://qa-development-site.onrender.com/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      const data = await response.json();
-      setMessage(data.message);
+    const data = await response.json();
+    setMessage(data.message);
+  } catch (error) {
+    setMessage("Error connecting to server: " + error.message);
+  }
+ };
 
-      if (data.message === "Login successful!") {
-        // Redirect to home page
-        window.location.href = "/home";
-      }
-    } catch (error) {
-      console.error("Error logging in:", error);
-      setMessage("Something went wrong. Please try again.");
-    }
-  };
 
   return (
     <div
