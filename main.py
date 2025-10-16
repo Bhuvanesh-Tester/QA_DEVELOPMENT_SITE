@@ -15,10 +15,10 @@ app.add_middleware(
 )
 
 # Database configuration
-DB_HOST = os.getenv("DB_HOST", "db.qfdhtoxzdnnfbnhkzkyb.supabase.co")
+DB_HOST = os.getenv("DB_HOST", "aws-1-us-east-2.pooler.supabase.com")
 DB_NAME = os.getenv("DB_NAME", "postgres")
-DB_USER = os.getenv("DB_USER", "test@example.com")
-DB_PASS = os.getenv("DB_PASS", "12345")
+DB_USER = os.getenv("DB_USER", "postgres.qfdhtoxzdnnfbnhkzkyb")
+DB_PASS = os.getenv("DB_PASS", "Dbbhuvi@123")
 
 # Root endpoint
 @app.get("/")
