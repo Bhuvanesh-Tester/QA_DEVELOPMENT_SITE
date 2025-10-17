@@ -16,8 +16,8 @@ app.add_middleware(
 )
 
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xyz.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "YOUR_SUPABASE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qfdhtoxzdnnfbnhkzkyb.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZGh0b3h6ZG5uZmJuaGt6a3liIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDQ4MjUzMiwiZXhwIjoyMDc2MDU4NTMyfQ.GlYjWYOYQB3f_IF7dfjO8M8wWgQy5s-Xcrz1sEXQqno")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -72,3 +72,12 @@ async def login(request: Request):
 
     except Exception as e:
         return {"message": f"Supabase error: {str(e)}"}
+    
+@app.get("/check-db")
+def check_db():
+    try:
+        response = supabase.table("users").select("*").limit(1).execute()
+        return {"status": "connected", "data": response.data}
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}
+  
