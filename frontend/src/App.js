@@ -1,46 +1,13 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 
-function App() {
-  // ---------- LOGIN STATES ----------
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [loggedIn, setLoggedIn] = useState(false);
-
-  // ---------- PERSON FORM STATES ----------
+// ---------- CHILD COMPONENT ----------
+function HomePage({ email, onLogout }) {
   const [personName, setPersonName] = useState("");
-  const [personEmail, setPersonEmail] = useState("");
+  const [personEmail, setPersonEmail] = useState(email || "");
   const [personPhone, setPersonPhone] = useState("");
   const [personGender, setPersonGender] = useState("");
   const [formMsg, setFormMsg] = useState("");
 
-  // ---------- LOGIN HANDLER ----------
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setMessage("Checking credentials...");
-
-    try {
-      const res = await fetch("https://qa-development-site.onrender.com/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-      setMessage(data.message);
-
-      if (data.message === "Login successful!") {
-        setTimeout(() => {
-          setLoggedIn(true);
-          setPersonEmail(email); // prefill email in next form
-        }, 300);
-      }
-    } catch (err) {
-      setMessage("Error connecting to server: " + err.message);
-    }
-  };
-
-  // ---------- PERSON FORM HANDLER ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormMsg("Submitting...");
@@ -75,8 +42,7 @@ function App() {
     }
   };
 
-  // ---------- HOME PAGE (SEPARATE COMPONENT) ----------
-  const HomePage = useCallback(() => (
+  return (
     <div
       style={{
         minHeight: "100vh",
@@ -95,10 +61,11 @@ function App() {
           boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
           width: "100%",
           maxWidth: 480,
-          transition: "all 0.3s ease",
         }}
       >
-        <h2 style={{ textAlign: "center", marginBottom: 20, color: "#333" }}>Person Details</h2>
+        <h2 style={{ textAlign: "center", marginBottom: 20, color: "#333" }}>
+          Person Details
+        </h2>
 
         <form onSubmit={handleSubmit}>
           <label style={labelStyle}>Name</label>
@@ -166,12 +133,55 @@ function App() {
             {formMsg}
           </p>
         )}
+
+        <button
+          onClick={onLogout}
+          style={{ ...buttonStyle, background: "#f66", color: "#fff", marginTop: 20 }}
+        >
+          Logout
+        </button>
       </div>
     </div>
-  ), [personName, personEmail, personPhone, personGender, formMsg]);
+  );
+}
 
-  // ---------- LOGIN PAGE ----------
-  if (loggedIn) return <HomePage />;
+// ---------- MAIN APP COMPONENT ----------
+function App() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setMessage("Checking credentials...");
+
+    try {
+      const res = await fetch("https://qa-development-site.onrender.com/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+      setMessage(data.message);
+
+      if (data.message === "Login successful!") {
+        setTimeout(() => setLoggedIn(true), 300);
+      }
+    } catch (err) {
+      setMessage("Error connecting to server: " + err.message);
+    }
+  };
+
+  const handleLogout = () => {
+    setLoggedIn(false);
+    setEmail("");
+    setPassword("");
+    setMessage("");
+  };
+
+  if (loggedIn) return <HomePage email={email} onLogout={handleLogout} />;
 
   return (
     <div
@@ -192,7 +202,6 @@ function App() {
           boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
           width: "100%",
           maxWidth: 420,
-          transition: "all 0.3s ease",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 14 }}>
@@ -261,7 +270,6 @@ const inputStyle = {
   boxSizing: "border-box",
   outline: "none",
   fontSize: 15,
-  transition: "border 0.2s ease",
 };
 
 const labelStyle = {
@@ -281,7 +289,6 @@ const buttonStyle = {
   fontWeight: 700,
   cursor: "pointer",
   marginTop: 6,
-  transition: "background 0.2s ease",
 };
 
 export default App;
