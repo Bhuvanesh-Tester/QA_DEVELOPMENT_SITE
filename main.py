@@ -4,11 +4,16 @@ from supabase import create_client, Client
 import os
 
 app = FastAPI()
+origins = [
+    "https://qa-development-site.onrender.com",   # your backend (Render)
+    "https://qa-development-site.vercel.app/",     # replace with your actual Vercel frontend URL
+    "http://localhost:3000",                     # for local React testing
+]
 
 # ✅ Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://qa-development-site.onrender.com/login","http://localhost:3000"],  # Replace "*" with your frontend URL in production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
