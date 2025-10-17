@@ -5,15 +5,14 @@ import os
 
 app = FastAPI()
 origins = [
-    "https://qa-development-site.onrender.com",   # your backend (Render)
-    "https://qa-development-site.vercel.app/",     # replace with your actual Vercel frontend URL
-    "http://localhost:3000",                     # for local React testing
+    "https://qa-development-site.onrender.com",  # backend
+    "https://qa-development-site.vercel.app",    # frontend (no trailing slash)
+    "http://localhost:3000",                     # local frontend
 ]
 
-# ✅ Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins,          # or use ["*"] for testing
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
