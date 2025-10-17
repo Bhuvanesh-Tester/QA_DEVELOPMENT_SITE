@@ -4,25 +4,56 @@ function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loggedIn, setLoggedIn] = useState(false); // ✅ Track login state
 
   const handleLogin = async (e) => {
-  e.preventDefault();
-  setMessage("Checking credentials...");
+    e.preventDefault();
+    setMessage("Checking credentials...");
 
-  try {
-    const response = await fetch("https://qa-development-site.onrender.com/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch(
+        "https://qa-development-site.onrender.com/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
-    const data = await response.json();
-    setMessage(data.message);
-  } catch (error) {
-    setMessage("Error connecting to server: " + error.message);
-  }
- };
+      const data = await response.json();
+      setMessage(data.message);
 
+      if (data.message === "Login successful!") {
+        // ✅ Set loggedIn state to true instead of redirect
+        setTimeout(() => setLoggedIn(true), 1000);
+      }
+    } catch (error) {
+      setMessage("Error connecting to server: " + error.message);
+    }
+  };
+
+  // ✅ Home page component
+  const HomePage = () => (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg, #ACB6E5 0%, #74ebd5 100%)",
+        color: "#fff",
+        fontSize: "2rem",
+        fontWeight: "700",
+        flexDirection: "column",
+      }}
+    >
+      <h1>Welcome Home!</h1>
+      <p>You are successfully logged in.</p>
+    </div>
+  );
+
+  // ✅ Render login form or home page based on state
+  if (loggedIn) return <HomePage />;
 
   return (
     <div
@@ -51,33 +82,81 @@ function App() {
             alt="login icon"
             style={{ width: "64px", marginBottom: "8px" }}
           />
-          <h2 style={{ margin: 0, color: "#333", fontWeight: 700, fontSize: "2rem" }}>Login</h2>
+          <h2
+            style={{
+              margin: 0,
+              color: "#333",
+              fontWeight: 700,
+              fontSize: "2rem",
+            }}
+          >
+            Login
+          </h2>
         </div>
+
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: "18px", textAlign: "left" }}>
-            <label htmlFor="email" style={{ display: "block", marginBottom: "6px", color: "#555", fontWeight: 500 }}>Email</label>
+            <label
+              htmlFor="email"
+              style={{
+                display: "block",
+                marginBottom: "6px",
+                color: "#555",
+                fontWeight: 500,
+              }}
+            >
+              Email
+            </label>
             <input
               id="email"
               type="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "1rem", outline: "none", boxSizing: "border-box" }}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "8px",
+                border: "1px solid #d1d5db",
+                fontSize: "1rem",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
               required
             />
           </div>
+
           <div style={{ marginBottom: "22px", textAlign: "left" }}>
-            <label htmlFor="password" style={{ display: "block", marginBottom: "6px", color: "#555", fontWeight: 500 }}>Password</label>
+            <label
+              htmlFor="password"
+              style={{
+                display: "block",
+                marginBottom: "6px",
+                color: "#555",
+                fontWeight: 500,
+              }}
+            >
+              Password
+            </label>
             <input
               id="password"
               type="password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "1rem", outline: "none", boxSizing: "border-box" }}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "8px",
+                border: "1px solid #d1d5db",
+                fontSize: "1rem",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
               required
             />
           </div>
+
           <button
             type="submit"
             style={{
@@ -96,8 +175,15 @@ function App() {
             Login
           </button>
         </form>
+
         {message && (
-          <p style={{ marginTop: "18px", color: message.includes("success") ? "#22bb33" : "#e74c3c", fontWeight: 500 }}>
+          <p
+            style={{
+              marginTop: "18px",
+              color: message.includes("success") ? "#22bb33" : "#e74c3c",
+              fontWeight: 500,
+            }}
+          >
             {message}
           </p>
         )}
