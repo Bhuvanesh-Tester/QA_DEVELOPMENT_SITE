@@ -1,5 +1,13 @@
 import React, { useState } from "react";
 
+// ---------- BASE API URL ----------
+const API_BASE_URL =
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:8000"
+    : "https://qa-development-site.onrender.com";
+
+console.log("🔗 API Base URL:", API_BASE_URL);
+
 // ---------- CHILD COMPONENT ----------
 function HomePage({ email, onLogout }) {
   const [personName, setPersonName] = useState("");
@@ -7,20 +15,25 @@ function HomePage({ email, onLogout }) {
   const [personPhone, setPersonPhone] = useState("");
   const [personGender, setPersonGender] = useState("");
   const [formMsg, setFormMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormMsg("Submitting...");
-
     if (!personName || !personEmail || !personPhone || !personGender) {
-      setFormMsg("All fields are required.");
+      setFormMsg("⚠️ All fields are required!");
       return;
     }
 
+    setLoading(true);
+    setFormMsg("Submitting...");
+
     try {
-      const res = await fetch("https://qa-development-site.onrender.com/submit-form", {
+      console.log("📡 Sending POST request to:", `${API_BASE_URL}/submit-form`);
+      const res = await fetch(`${API_BASE_URL}/submit-form`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           name: personName,
           email: personEmail,
@@ -30,7 +43,8 @@ function HomePage({ email, onLogout }) {
       });
 
       const data = await res.json();
-      setFormMsg(data.message || "Submitted successfully!");
+      console.log("✅ Response received:", data);
+      setFormMsg(data.message || "✅ Submitted successfully!");
 
       if ((data.message || "").toLowerCase().includes("success")) {
         setPersonName("");
@@ -38,7 +52,22 @@ function HomePage({ email, onLogout }) {
         setPersonGender("");
       }
     } catch (err) {
-      setFormMsg("Error submitting form: " + err.message);
+      console.error("❌ Submission Error:", err);
+      setFormMsg("❌ Error submitting form: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all users (for debug)
+  const handleFetchAll = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/all-users`);
+      const data = await res.json();
+      console.log("All users:", data);
+      alert(`Total users found: ${data.data?.length || 0}`);
+    } catch (err) {
+      alert("Error fetching users: " + err.message);
     }
   };
 
@@ -64,34 +93,32 @@ function HomePage({ email, onLogout }) {
         }}
       >
         <h2 style={{ textAlign: "center", marginBottom: 20, color: "#333" }}>
-          Person Details
+          Person Details Form
         </h2>
 
         <form onSubmit={handleSubmit}>
-          <label style={labelStyle}>Name</label>
+          <label style={labelStyle}>Full Name</label>
           <input
             name="name"
             value={personName}
             onChange={(e) => setPersonName(e.target.value)}
-            placeholder="Full name"
+            placeholder="Enter full name"
             style={inputStyle}
             required
-            autoComplete="name"
           />
 
-          <label style={labelStyle}>Email (prefilled)</label>
+          <label style={labelStyle}>Email</label>
           <input
             name="email"
             type="email"
             value={personEmail}
             onChange={(e) => setPersonEmail(e.target.value)}
-            placeholder="Email"
+            placeholder="Email address"
             style={{ ...inputStyle, background: "#fbfbfb" }}
             required
-            autoComplete="email"
           />
 
-          <label style={labelStyle}>Phone</label>
+          <label style={labelStyle}>Phone Number</label>
           <input
             name="phone"
             value={personPhone}
@@ -99,7 +126,6 @@ function HomePage({ email, onLogout }) {
             placeholder="Phone number"
             style={inputStyle}
             required
-            inputMode="tel"
           />
 
           <label style={labelStyle}>Gender</label>
@@ -116,8 +142,15 @@ function HomePage({ email, onLogout }) {
             <option value="Other">Other</option>
           </select>
 
-          <button type="submit" style={buttonStyle}>
-            Submit
+          <button
+            type="submit"
+            style={{
+              ...buttonStyle,
+              opacity: loading ? 0.6 : 1,
+              pointerEvents: loading ? "none" : "auto",
+            }}
+          >
+            {loading ? "Submitting..." : "Submit"}
           </button>
         </form>
 
@@ -140,6 +173,13 @@ function HomePage({ email, onLogout }) {
         >
           Logout
         </button>
+
+        <button
+          onClick={handleFetchAll}
+          style={{ ...buttonStyle, background: "#007bff", color: "#fff", marginTop: 10 }}
+        >
+          Fetch All Users (Console)
+        </button>
       </div>
     </div>
   );
@@ -151,26 +191,33 @@ function App() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
     setMessage("Checking credentials...");
 
     try {
-      const res = await fetch("https://qa-development-site.onrender.com/login", {
+      console.log("📡 Sending POST request to:", `${API_BASE_URL}/login`);
+      const res = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
+      console.log("✅ Login response:", data);
       setMessage(data.message);
 
       if (data.message === "Login successful!") {
         setTimeout(() => setLoggedIn(true), 300);
       }
     } catch (err) {
-      setMessage("Error connecting to server: " + err.message);
+      console.error("❌ Login Error:", err);
+      setMessage("❌ Error connecting to server: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -223,7 +270,6 @@ function App() {
             style={inputStyle}
             placeholder="you@example.com"
             required
-            autoComplete="email"
           />
 
           <label style={labelStyle}>Password</label>
@@ -235,11 +281,17 @@ function App() {
             style={inputStyle}
             placeholder="password"
             required
-            autoComplete="current-password"
           />
 
-          <button type="submit" style={buttonStyle}>
-            Login
+          <button
+            type="submit"
+            style={{
+              ...buttonStyle,
+              opacity: loading ? 0.6 : 1,
+              pointerEvents: loading ? "none" : "auto",
+            }}
+          >
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
