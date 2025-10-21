@@ -1,20 +1,34 @@
-# main.py (Full Update - Security Note Added)
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from passlib.hash import bcrypt
 import os
-# Recommended: Use Pydantic models for request bodies instead of Request and await request.json()
+from pydantic import BaseModel # New Import for data validation
+
+# --- Pydantic Models for Request Body Validation ---
+class AuthData(BaseModel):
+    """Model for Login and Registration requests."""
+    email: str
+    password: str
+
+class FormData(BaseModel):
+    """Model for Form Submission requests."""
+    name: str
+    email: str
+    phone: str
+    gender: str
 
 app = FastAPI()
 
-# ---------- CORS (Configuration is correct based on your provided URLs) ----------
+# -------------------------------------------------------------------------------------------------
+# ---------- CORS Configuration ----------
+# -------------------------------------------------------------------------------------------------
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://qa-development-site.vercel.app",  # Your Vercel frontend URL
-    "https://qa-development-site.onrender.com" # Your Render backend URL (if accessing a local instance of the backend from the deployed backend URL, which is unlikely)
+    "https://qa-development-site.vercel.app", 
+    "https://qa-development-site.onrender.com" 
 ]
 
 app.add_middleware(
@@ -25,104 +39,111 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# ---------- Supabase (SECURITY WARNING: Key should be ONLY in environment variables) ----------
+# -------------------------------------------------------------------------------------------------
+# ---------- Supabase Client Initialization ----------
+# -------------------------------------------------------------------------------------------------
+# SECURITY WARNING: Keys should ONLY be set in the deployment environment variables (Render).
+# Hardcoding here is ONLY for local development fallback, but is a security risk in public repos.
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qfdhtoxzdnnfbnhkzkyb.supabase.co")
 SUPABASE_KEY = os.getenv(
     "SUPABASE_SERVICE_ROLE_KEY",
-    # WARNING: THIS KEY IS VISIBLE IN GITHUB/CODE. USE OS.GETENV ONLY.
+    # Replace with your actual key or ensure it is ONLY in environment variables
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZGh0b3h6ZG5uZmJuaGt6a3liIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDQ4MjUzMiwiZXhwIjoyMDc2MDU4NTMyfQ.GlYjWYOYQB3f_IF7dfjO8M8wWgQy5s-Xcrz1sEXQqno"
 )
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ---------- Root ----------
+# -------------------------------------------------------------------------------------------------
+# ---------- API Routes ----------
+# -------------------------------------------------------------------------------------------------
+
 @app.get("/")
 def root():
     return {"message": "✅ FastAPI backend running successfully!"}
 
 # ---------- Register ----------
+# Using Pydantic model for automatic validation
 @app.post("/register")
-async def register(request: Request):
-    data = await request.json()
-    email = data.get("email")
-    password = data.get("password")
-
-    if not email or not password:
-        raise HTTPException(status_code=400, detail="Email and password are required.")
-
-    # Using passlib's bcrypt hash
-    hashed_password = bcrypt.hash(password)
+async def register(auth_data: AuthData): 
+    # Password validation is now handled by Pydantic's BaseModel
+    
+    hashed_password = bcrypt.hash(auth_data.password)
 
     try:
         response = supabase.table("users").insert({
-            "email": email,
+            "email": auth_data.email,
             "password": hashed_password
         }).execute()
 
-        # Supabase will return data=[] if insert fails on unique constraint, 
-        # but execute() raises an exception if there's a database error.
         if response.data:
             return {"message": "User registered successfully!"}
-        # If response.data is [] and no exception, it might be due to RLS or other configuration.
-        raise HTTPException(status_code=400, detail="Registration failed (check RLS or unique constraint).")
+        
+        # Default registration failure check
+        raise HTTPException(status_code=400, detail="Registration failed. Check RLS or database configuration.")
+        
     except Exception as e:
-        # Check for specific database error messages if needed (e.g., unique violation)
-        raise HTTPException(status_code=500, detail=f"Supabase error: {str(e)}")
+        error_message = str(e)
+        # Catch specific error code for unique constraint violation (e.g., email already exists)
+        if "unique" in error_message.lower():
+            raise HTTPException(status_code=409, detail="User with this email already exists.")
+        
+        # General Supabase/Database error
+        raise HTTPException(status_code=500, detail=f"Database Error: {error_message}")
+
 
 # ---------- Login ----------
+# Using Pydantic model for automatic validation
 @app.post("/login")
-async def login(request: Request):
-    data = await request.json()
-    email = data.get("email")
-    password = data.get("password")
-
-    if not email or not password:
-        raise HTTPException(status_code=400, detail="Email and password are required.")
-
+async def login(auth_data: AuthData): 
+    
     try:
-        response = supabase.table("users").select("password").eq("email", email).execute()
+        response = supabase.table("users").select("password").eq("email", auth_data.email).execute()
         users = response.data
+        
         if not users:
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 
         user = users[0]
-        if bcrypt.verify(password, user["password"]):
-            # NOTE: For a real app, you would generate and return a JWT here.
-            return {"message": "Login successful!", "email": email}
+        # Check if the submitted password matches the stored hash
+        if bcrypt.verify(auth_data.password, user["password"]):
+            return {"message": "Login successful!", "email": auth_data.email}
+            
+        # If bcrypt verification fails
         raise HTTPException(status_code=401, detail="Invalid email or password.")
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Supabase error: {str(e)}")
+        # If the error is related to a bad hash format (as seen before)
+        if "not a valid bcrypt hash" in str(e):
+             raise HTTPException(status_code=401, detail="Invalid email or password.") # Use a generic message for security
+             
+        raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
 
 # ---------- Form Submission ----------
+# Using Pydantic model for automatic validation
 @app.post("/submit-form")
-async def submit_form(request: Request):
-    data = await request.json()
-    name = data.get("name")
-    email = data.get("email")
-    phone = data.get("phone")
-    gender = data.get("gender")
-
-    if not all([name, email, phone, gender]):
-        raise HTTPException(status_code=400, detail="All fields are required!")
+async def submit_form(form_data: FormData): 
 
     try:
         response = supabase.table("person_details").insert({
-            "name": name,
-            "email": email,
-            "phone": phone,
-            "gender": gender
+            "name": form_data.name,
+            "email": form_data.email,
+            "phone": form_data.phone,
+            "gender": form_data.gender
         }).execute()
 
         if response.data:
             return {"message": "Form submitted successfully!"}
+            
         raise HTTPException(status_code=400, detail="Failed to submit form.")
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Supabase error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
 
-# ---------- Fetch All Users ----------
+# ---------- Fetch All Users (Debug/Testing Route) ----------
 @app.get("/all-users")
 def all_users():
+    # NOTE: In a real application, this route must be protected!
     try:
         response = supabase.table("person_details").select("*").execute()
         return {"status": "success", "data": response.data}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Supabase error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")

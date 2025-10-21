@@ -1,5 +1,3 @@
-// app.js (Full Update)
-
 import React, { useState } from "react";
 
 // NOTE: Vercel frontend is deployed (e.g., to "https://your-app-name.vercel.app")
@@ -13,7 +11,9 @@ const API_BASE_URL =
 
 console.log("🔗 API Base URL:", API_BASE_URL);
 
+// -------------------------------------------------------------------------------------------------
 // ---------- HOME PAGE (Form Submission) ----------
+// -------------------------------------------------------------------------------------------------
 function HomePage({ email, onLogout }) {
   const [personName, setPersonName] = useState("");
   const [personEmail, setPersonEmail] = useState(email || "");
@@ -38,7 +38,6 @@ function HomePage({ email, onLogout }) {
       const res = await fetch(`${API_BASE_URL}/submit-form`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // credentials: "include" is generally used for cookies. Fine to keep, but often optional.
         credentials: "include", 
         body: JSON.stringify({
           name: personName,
@@ -57,7 +56,6 @@ function HomePage({ email, onLogout }) {
       setFormMsg(data.message || "✅ Submitted successfully!");
 
       if ((data.message || "").toLowerCase().includes("success")) {
-        // Clear non-email fields on success
         setPersonName("");
         setPersonPhone("");
         setPersonGender("");
@@ -73,7 +71,6 @@ function HomePage({ email, onLogout }) {
   // Optional Debug Button
   const handleFetchAll = async () => {
     try {
-      // NOTE: This route should be protected in a real app
       const res = await fetch(`${API_BASE_URL}/all-users`, { credentials: "include" });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
@@ -182,42 +179,61 @@ function HomePage({ email, onLogout }) {
   );
 }
 
-// ---------- MAIN APP (Login/Logout) ----------
+// -------------------------------------------------------------------------------------------------
+// ---------- MAIN APP (Login/Register/Logout) ----------
+// -------------------------------------------------------------------------------------------------
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // NEW STATE: To switch between Login and Register views
+  const [isRegistering, setIsRegistering] = useState(false); 
   const [message, setMessage] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  // Function to handle both Login and Register form submission
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage("Checking credentials...");
+    
+    // Determine the API endpoint based on the view
+    const endpoint = isRegistering ? "/register" : "/login";
+    setMessage(isRegistering ? "Registering user..." : "Checking credentials...");
 
     try {
-      console.log("📡 Sending POST to:", `${API_BASE_URL}/login`);
-      const res = await fetch(`${API_BASE_URL}/login`, {
+      console.log(`📡 Sending POST to: ${API_BASE_URL}${endpoint}`);
+      
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
-      console.log("📥 Login Response:", res);
+      console.log(`📥 ${isRegistering ? 'Register' : 'Login'} Response:`, res);
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.detail || "Login failed");
+      if (!res.ok) throw new Error(data.detail || (isRegistering ? "Registration failed" : "Login failed"));
 
-      console.log("✅ Login Success:", data);
-      setMessage(data.message);
-
-      if ((data.message || "").toLowerCase().includes("success")) {
-        setTimeout(() => setLoggedIn(true), 400);
+      console.log(`✅ ${isRegistering ? 'Register' : 'Login'} Success:`, data);
+      
+      if (isRegistering) {
+          // If successful registration, switch to Login view
+          setMessage("✅ Registration successful! Please log in.");
+          setIsRegistering(false); 
+          setPassword(""); // Clear password field
+      } else {
+          // If successful login, set loggedIn state
+          setMessage(data.message);
+          if ((data.message || "").toLowerCase().includes("success")) {
+              setTimeout(() => setLoggedIn(true), 400);
+          }
       }
     } catch (err) {
-      console.error("❌ Login Error:", err);
-      setMessage("❌ " + (err.message || "Failed to connect to server."));
+      console.error(`❌ ${isRegistering ? 'Register' : 'Login'} Error:`, err);
+      // Clean up the error message for display
+      const errorMsg = String(err.message).replace('Failed to fetch', 'Failed to connect to backend.');
+      setMessage("❌ " + errorMsg);
     } finally {
       setLoading(false);
     }
@@ -228,6 +244,7 @@ function App() {
     setEmail("");
     setPassword("");
     setMessage("");
+    setIsRegistering(false); // Reset to login view on logout
   };
 
   if (loggedIn) return <HomePage email={email} onLogout={handleLogout} />;
@@ -241,13 +258,13 @@ function App() {
             alt="user"
             style={{ width: 64 }}
           />
-          <h2 style={{ margin: "8px 0 0", color: "#333" }}>Login</h2>
+          <h2 style={{ margin: "8px 0 0", color: "#333" }}>{isRegistering ? "Register New User" : "Login"}</h2>
         </div>
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleSubmit}>
           <label style={labelStyle}>Email</label>
           <input
-            id="login-email"
+            id="auth-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -258,7 +275,7 @@ function App() {
 
           <label style={labelStyle}>Password</label>
           <input
-            id="login-password"
+            id="auth-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -276,7 +293,10 @@ function App() {
             }}
             disabled={loading}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading 
+                ? (isRegistering ? "Registering..." : "Logging in...") 
+                : (isRegistering ? "Register" : "Login")
+            }
           </button>
         </form>
 
@@ -292,12 +312,33 @@ function App() {
             {message}
           </p>
         )}
+        
+        {/* Toggle Button for Register/Login */}
+        <button
+          onClick={() => {
+            setIsRegistering(!isRegistering);
+            setMessage(""); // Clear message on switch
+            setEmail(""); // Clear fields on switch
+            setPassword("");
+          }}
+          style={{
+            ...buttonStyle,
+            background: isRegistering ? "#007bff" : "#5cb85c", // Different color to distinguish
+            marginTop: 15,
+            fontSize: 14,
+          }}
+        >
+          {isRegistering ? "Already have an account? Go to Login" : "Need an account? Go to Register"}
+        </button>
+
       </div>
     </div>
   );
 }
 
+// -------------------------------------------------------------------------------------------------
 // ---------- STYLES (Kept as is) ----------
+// -------------------------------------------------------------------------------------------------
 const outerContainer = {
   minHeight: "100vh",
   display: "flex",
