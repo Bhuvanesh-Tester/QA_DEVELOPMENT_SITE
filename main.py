@@ -1,53 +1,65 @@
+import os
 import json
-from fastapi import FastAPI, HTTPException, Body, Depends, Request
+import bcrypt
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Dict, Any, Optional
 
-# --- Configuration ---
-# CORS configuration to allow the front-end to communicate with the back-end.
-# For production, replace "*" with the actual front-end origin URL.
+# --- Supabase Configuration ---
+# NOTE: We use os.environ.get() to safely read these from Render's environment variables.
+# The values you provided are hardcoded here for reference, but MUST be set in Render.
+# If running locally, you must use a .env file or export these variables.
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://qfdhtoxzdnnfbnhkzkyb.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZGh0b3h6ZG5uZmJuaGt6a3liIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDQ4MjUzMiwiZXhwIjoyMDc2MDU4NTMyfQ.GlYjWYOYQB3f_IF7dfjO8M8wWgQy5s-Xcrz1sEXQqno")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("FATAL: Supabase URL or Key not found in environment variables.")
+    # In a real app, you'd raise an error here. For local testing flexibility, we continue.
+
+try:
+    from supabase import create_client, Client
+    # Initialize the Supabase client
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    # Define the table names used in your database schema (from your screenshots)
+    USERS_TABLE = "users"
+    DETAILS_TABLE = "person_details"
+    print("✅ Supabase client initialized.")
+except ImportError:
+    print("WARNING: Supabase or associated packages not installed. Running in-memory (TEMPORARY).")
+    supabase = None
+    USERS_TABLE = None
+    DETAILS_TABLE = None
+
+# --- Configuration (FastAPI) ---
 origins = [
     "*", 
-    "https://qa-development-site.onrender.com" # Allow the Render URL as well
+    "https://qa-development-site.onrender.com"
 ]
 
-# --- In-Memory Database (Data lost on server restart) ---
-# Simulating a database for user accounts
-user_database: Dict[EmailStr, Dict[str, str]] = {}
-# Simulating a database for form submissions
-form_data_database: List[Dict[str, str]] = []
-
 # --- Pydantic Data Models ---
-
 class UserIn(BaseModel):
-    """Model for incoming login and registration requests."""
     email: EmailStr
-    # In a real application, passwords should be securely hashed (e.g., using bcrypt)
     password: str = Field(..., min_length=6)
 
 class MessageResponse(BaseModel):
-    """Generic response model for status messages."""
     message: str
 
 class FormDataIn(BaseModel):
-    """Model for incoming form submission data."""
     name: str = Field(..., min_length=2)
     email: EmailStr
     phone: str = Field(..., min_length=10)
     gender: str
 
 class AllUsersResponse(BaseModel):
-    """Model for the response containing all form data."""
     data: List[Dict[str, Any]]
     message: str
 
 
 # --- FastAPI App Initialization ---
-
 app = FastAPI(
     title="QA Development Site API",
-    description="Backend for User Authentication and Form Submission"
+    description="Backend with Supabase Authentication and Form Submission"
 )
 
 # Apply CORS Middleware
@@ -59,69 +71,119 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Utility Functions ---
+
+def hash_password(password: str) -> str:
+    """Hashes a password using bcrypt."""
+    # bcrypt generates its own salt and hashes in one go
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return hashed
+
+def check_password(password: str, hashed_password: str) -> bool:
+    """Checks a plaintext password against a bcrypt hash."""
+    try:
+        # Check the password. It handles salting internally.
+        return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except ValueError:
+        # Catches the "not a valid bcrypt hash" error if the stored password is plaintext or corrupted
+        return False
+
 # --- Endpoints ---
 
 @app.get("/", response_model=MessageResponse)
 async def root():
     """Health check endpoint."""
-    return {"message": "Server is running and healthy."}
+    return {"message": "Server is running and healthy, connected to Supabase."}
 
 @app.post("/register", response_model=MessageResponse)
 async def register_user(user: UserIn):
-    """Registers a new user."""
-    if user.email in user_database:
+    """Registers a new user in Supabase with a hashed password."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection error.")
+
+    # 1. Check if user already exists
+    response = supabase.table(USERS_TABLE).select("email").eq("email", user.email).execute()
+    if response.data:
         raise HTTPException(status_code=400, detail="User already exists.")
     
-    # Store user (in a real app, hash the password!)
-    user_database[user.email] = {"email": user.email, "password": user.password}
-    print(f"✅ Registered new user: {user.email}")
-    return {"message": "Registration successful!"}
+    # 2. Hash the password
+    hashed_pass = hash_password(user.password)
+    
+    # 3. Insert into Supabase
+    data_to_insert = {
+        "email": user.email,
+        "password": hashed_pass
+    }
+    
+    response = supabase.table(USERS_TABLE).insert(data_to_insert).execute()
+    
+    if response.data:
+        print(f"✅ Registered new user in Supabase: {user.email}")
+        return {"message": "Registration successful! Please proceed to login."}
+    else:
+        print(f"❌ Supabase registration failed for {user.email}. Error: {response.error}")
+        raise HTTPException(status_code=500, detail="Database registration failed.")
+
 
 @app.post("/login", response_model=MessageResponse)
 async def login_user(user: UserIn):
-    """Authenticates an existing user."""
-    if user.email not in user_database:
-        raise HTTPException(status_code=404, detail="User not found.")
+    """Authenticates an existing user against the hashed password in Supabase."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection error.")
+
+    # 1. Fetch the user's data (specifically the hashed password)
+    response = supabase.table(USERS_TABLE).select("password").eq("email", user.email).execute()
     
-    stored_user = user_database[user.email]
+    if not response.data:
+        # User not found
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
     
-    # Simple password check (in a real app, compare hashed passwords)
-    if stored_user["password"] != user.password:
-        raise HTTPException(status_code=401, detail="Invalid password.")
+    # 2. Get the stored hashed password
+    stored_hash = response.data[0]["password"]
     
-    print(f"✅ User logged in: {user.email}")
+    # 3. Check the provided password against the stored hash
+    if not check_password(user.password, stored_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    
+    print(f"✅ User logged in from Supabase: {user.email}")
     return {"message": f"Login successful for user: {user.email}"}
+
 
 @app.post("/submit-form", response_model=MessageResponse)
 async def submit_form_data(form_data: FormDataIn):
-    """Receives and stores person details."""
+    """Receives and stores person details in Supabase."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection error.")
+
+    data_to_insert = form_data.model_dump()
     
-    # Simple data storage
-    form_data_database.append(form_data.dict())
+    # Insert into the person_details table
+    response = supabase.table(DETAILS_TABLE).insert(data_to_insert).execute()
     
-    print(f"💾 Form submitted by {form_data.email}. Total submissions: {len(form_data_database)}")
-    return {"message": f"Form data saved successfully for {form_data.email}."}
+    if response.data:
+        print(f"💾 Form submitted to Supabase by {form_data.email}.")
+        return {"message": f"Form data saved successfully for {form_data.email}."}
+    else:
+        print(f"❌ Supabase form submission failed for {form_data.email}. Error: {response.error}")
+        raise HTTPException(status_code=500, detail="Database submission failed.")
+
 
 @app.get("/all-users", response_model=AllUsersResponse)
 async def get_all_users():
-    """Returns all stored form data (for debugging/testing)."""
+    """Returns all stored form data from Supabase."""
+    if not supabase:
+        # This will only happen if the import failed.
+        return {"message": "Database not connected. Returning no data.", "data": []}
+        
+    # Fetch all data from the details table
+    response = supabase.table(DETAILS_TABLE).select("*").execute()
     
-    # Note: In a real app, this would require authentication/authorization check
-    
-    return {
-        "message": f"Successfully retrieved {len(form_data_database)} user submissions.",
-        "data": form_data_database
-    }
-
-# Endpoint to check the current in-memory data
-@app.get("/debug-data")
-async def debug_data():
-    return {
-        "users_count": len(user_database),
-        "form_data_count": len(form_data_database),
-    }
-
-# Example to run the app locally (requires `uvicorn` to be installed: pip install uvicorn)
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    if response.data is not None:
+        data_count = len(response.data)
+        return {
+            "message": f"Successfully retrieved {data_count} user submissions from Supabase.",
+            "data": response.data
+        }
+    else:
+        print(f"❌ Supabase fetch failed. Error: {response.error}")
+        raise HTTPException(status_code=500, detail="Could not retrieve data from database.")
