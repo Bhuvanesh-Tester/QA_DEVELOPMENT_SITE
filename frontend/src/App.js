@@ -1,22 +1,45 @@
 import React, { useState } from "react";
 
-// NOTE: Vercel frontend is deployed (e.g., to "https://your-app-name.vercel.app")
-// and the Render backend is deployed (e.g., to "https://qa-development-site.onrender.com")
-
-// ---------- BASE API URL: Use Render's URL when deployed, or localhost for local testing. ----------
+// --- Configuration ---
+// The confirmed, permanent URL for your deployed Render backend.
 const API_BASE_URL =
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
-    : "https://qa-development-site.onrender.com"; // Your deployed backend URL
+    : "https://qa-development-site.onrender.com"; // <-- Your Confirmed Live Render URL
 
 console.log("🔗 API Base URL:", API_BASE_URL);
+
+// -------------------------------------------------------------------------------------------------
+// ---------- UTILITY: Fetch with Exponential Backoff and Retry (Ensures reliability) ----------
+// -------------------------------------------------------------------------------------------------
+const fetchWithRetry = async (url, options, retries = 5) => {
+  // Add a small initial delay to prevent immediate failure in slow-starting environments like Render free tier
+  await new Promise(resolve => setTimeout(resolve, 500)); 
+  
+  for (let i = 0; i < retries; i++) {
+    // New: Logging the URL being attempted for better debugging
+    console.log(`[NETWORK] Attempting to fetch URL: ${url}`);
+    try {
+      const response = await fetch(url, options);
+      return response; 
+    } catch (error) {
+      if (i === retries - 1) {
+        throw error;
+      }
+
+      const delay = Math.pow(2, i) * 1000; 
+      console.warn(`[RETRY] Attempt ${i + 1}/${retries} failed. Retrying in ${delay / 1000}s...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
 
 // -------------------------------------------------------------------------------------------------
 // ---------- HOME PAGE (Form Submission) ----------
 // -------------------------------------------------------------------------------------------------
 function HomePage({ email, onLogout }) {
   const [personName, setPersonName] = useState("");
-  const [personEmail, setPersonEmail] = useState(email || "");
+  const [personEmail] = useState(email || ""); // Email is set from login state
   const [personPhone, setPersonPhone] = useState("");
   const [personGender, setPersonGender] = useState("");
   const [formMsg, setFormMsg] = useState("");
@@ -34,8 +57,10 @@ function HomePage({ email, onLogout }) {
     setFormMsg("Submitting...");
 
     try {
-      console.log("📡 Sending POST to:", `${API_BASE_URL}/submit-form`);
-      const res = await fetch(`${API_BASE_URL}/submit-form`, {
+      // API call visible in Network tab
+      console.log("📡 Sending POST to:", `${API_BASE_URL}/submit-form`); 
+      
+      const res = await fetchWithRetry(`${API_BASE_URL}/submit-form`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", 
@@ -47,12 +72,11 @@ function HomePage({ email, onLogout }) {
         }),
       });
 
-      console.log("📥 Response:", res);
+      console.log("📥 Form Response:", res);
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.detail || "Unknown error");
+      if (!res.ok) throw new Error(data.detail || "Unknown error during form submission");
 
-      console.log("✅ Form submission response:", data);
       setFormMsg(data.message || "✅ Submitted successfully!");
 
       if ((data.message || "").toLowerCase().includes("success")) {
@@ -62,23 +86,27 @@ function HomePage({ email, onLogout }) {
       }
     } catch (err) {
       console.error("❌ Error submitting form:", err);
-      setFormMsg("❌ Submission error: " + (err.message || String(err)));
+      let errorMsg = String(err.message);
+      if (errorMsg.includes('Failed to fetch')) {
+        errorMsg = `Network Error: Could not reach backend. Please check your Render deployment status and ensure the URL (${API_BASE_URL}/submit-form) is correct.`;
+      }
+      setFormMsg("❌ " + errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Optional Debug Button
   const handleFetchAll = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/all-users`, { credentials: "include" });
+      const res = await fetchWithRetry(`${API_BASE_URL}/all-users`, { credentials: "include" });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      console.log("👥 All users:", data);
-      alert(`Total users found: ${data.data?.length || 0}`);
+      console.log("👥 All users (from DB via API):", data.data);
+      console.log(`Total person details found: ${data.data?.length || 0}`);
+      
     } catch (err) {
-      alert("Error fetching users: " + err.message);
       console.error("❌ Fetch All Error:", err);
+      setFormMsg("❌ Error fetching users: " + err.message);
     }
   };
 
@@ -88,6 +116,10 @@ function HomePage({ email, onLogout }) {
         <h2 style={{ textAlign: "center", marginBottom: 20, color: "#333" }}>
           Person Details Form
         </h2>
+
+        <p style={{textAlign: 'center', color: '#5cb85c', fontWeight: 'bold', borderBottom: '2px solid #5cb85c', paddingBottom: 10}}>
+            Welcome, {email}!
+        </p>
 
         <form onSubmit={handleSubmit}>
           <label style={labelStyle}>Full Name</label>
@@ -100,15 +132,15 @@ function HomePage({ email, onLogout }) {
             required
           />
 
-          <label style={labelStyle}>Email</label>
+          <label style={labelStyle}>Email (Logged in user)</label>
           <input
             name="email"
             type="email"
             value={personEmail}
-            onChange={(e) => setPersonEmail(e.target.value)}
             placeholder="Email address"
-            style={{ ...inputStyle, background: "#fbfbfb" }}
+            style={{ ...inputStyle, background: "#f1f1f1" }}
             required
+            readOnly // Locked to the logged-in user's email
           />
 
           <label style={labelStyle}>Phone Number</label>
@@ -144,7 +176,7 @@ function HomePage({ email, onLogout }) {
             }}
             disabled={loading}
           >
-            {loading ? "Submitting..." : "Submit"}
+            {loading ? "Submitting..." : "Submit Form Data to DB"}
           </button>
         </form>
 
@@ -172,7 +204,7 @@ function HomePage({ email, onLogout }) {
           onClick={handleFetchAll}
           style={{ ...buttonStyle, background: "#007bff", color: "#fff", marginTop: 10 }}
         >
-          Fetch All Users (Console)
+          Fetch All Stored Data (Check Console)
         </button>
       </div>
     </div>
@@ -182,28 +214,26 @@ function HomePage({ email, onLogout }) {
 // -------------------------------------------------------------------------------------------------
 // ---------- MAIN APP (Login/Register/Logout) ----------
 // -------------------------------------------------------------------------------------------------
-function App() {
+const App = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // NEW STATE: To switch between Login and Register views
   const [isRegistering, setIsRegistering] = useState(false); 
   const [message, setMessage] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Function to handle both Login and Register form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
-    // Determine the API endpoint based on the view
     const endpoint = isRegistering ? "/register" : "/login";
     setMessage(isRegistering ? "Registering user..." : "Checking credentials...");
 
     try {
-      console.log(`📡 Sending POST to: ${API_BASE_URL}${endpoint}`);
+      // API call visible in Network tab
+      console.log(`📡 Sending POST to: ${API_BASE_URL}${endpoint}`); 
       
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await fetchWithRetry(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -218,21 +248,24 @@ function App() {
       console.log(`✅ ${isRegistering ? 'Register' : 'Login'} Success:`, data);
       
       if (isRegistering) {
-          // If successful registration, switch to Login view
           setMessage("✅ Registration successful! Please log in.");
           setIsRegistering(false); 
-          setPassword(""); // Clear password field
+          setPassword("");
       } else {
-          // If successful login, set loggedIn state
           setMessage(data.message);
           if ((data.message || "").toLowerCase().includes("success")) {
-              setTimeout(() => setLoggedIn(true), 400);
+              setTimeout(() => setLoggedIn(true), 400); // Redirect to Home Page
           }
       }
     } catch (err) {
       console.error(`❌ ${isRegistering ? 'Register' : 'Login'} Error:`, err);
-      // Clean up the error message for display
-      const errorMsg = String(err.message).replace('Failed to fetch', 'Failed to connect to backend.');
+      
+      let errorMsg = String(err.message);
+      if (errorMsg.includes('Failed to fetch')) {
+        errorMsg = `Network Error: Could not connect to backend at ${API_BASE_URL}. Please check your Render deployment status.`;
+      } else {
+        errorMsg = "Submission error: " + errorMsg;
+      }
       setMessage("❌ " + errorMsg);
     } finally {
       setLoading(false);
@@ -244,7 +277,7 @@ function App() {
     setEmail("");
     setPassword("");
     setMessage("");
-    setIsRegistering(false); // Reset to login view on logout
+    setIsRegistering(false); 
   };
 
   if (loggedIn) return <HomePage email={email} onLogout={handleLogout} />;
@@ -252,12 +285,12 @@ function App() {
   return (
     <div style={outerContainer}>
       <div style={loginContainer}>
+        
         <div style={{ textAlign: "center", marginBottom: 14 }}>
-          <img
-            src="https://img.icons8.com/fluency/96/000000/user-male-circle.png"
-            alt="user"
-            style={{ width: 64 }}
-          />
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto' }}>
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+
           <h2 style={{ margin: "8px 0 0", color: "#333" }}>{isRegistering ? "Register New User" : "Login"}</h2>
         </div>
 
@@ -317,13 +350,13 @@ function App() {
         <button
           onClick={() => {
             setIsRegistering(!isRegistering);
-            setMessage(""); // Clear message on switch
-            setEmail(""); // Clear fields on switch
+            setMessage(""); 
+            setEmail(""); 
             setPassword("");
           }}
           style={{
             ...buttonStyle,
-            background: isRegistering ? "#007bff" : "#5cb85c", // Different color to distinguish
+            background: isRegistering ? "#007bff" : "#5cb85c", 
             marginTop: 15,
             fontSize: 14,
           }}
@@ -337,7 +370,7 @@ function App() {
 }
 
 // -------------------------------------------------------------------------------------------------
-// ---------- STYLES (Kept as is) ----------
+// ---------- STYLES ----------
 // -------------------------------------------------------------------------------------------------
 const outerContainer = {
   minHeight: "100vh",
@@ -374,6 +407,7 @@ const inputStyle = {
   marginBottom: 12,
   fontSize: 15,
   outline: "none",
+  boxSizing: 'border-box'
 };
 
 const labelStyle = {
@@ -393,6 +427,8 @@ const buttonStyle = {
   fontWeight: 700,
   cursor: "pointer",
   marginTop: 6,
+  transition: 'background 0.2s'
 };
+
 
 export default App;

@@ -1,7 +1,19 @@
+# Python Web Server and Framework
 fastapi
-uvicorn
-passlib[bcrypt]
-python-dotenv
-sqlalchemy
+uvicorn[standard]
+
+# Database Client (PostgreSQL/Supabase)
+# psycopg2-binary is the driver needed to connect to the database.
 psycopg2-binary
-supabase
+
+# Database ORM and related tools (assuming you use SQLAlchemy)
+sqlalchemy
+
+# Hashing and Security
+# passlib is the library that provides the secure hashing interface.
+# [bcrypt] is included to ensure the bcrypt dependency is pulled in correctly.
+passlib[bcrypt]
+
+# Utilities
+# Used for securely loading local environment variables (like DB keys)
+python-dotenv
