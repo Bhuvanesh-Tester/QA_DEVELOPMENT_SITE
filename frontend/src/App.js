@@ -1,14 +1,19 @@
+// app.js (Full Update)
+
 import React, { useState } from "react";
 
-// ---------- BASE API URL ----------
+// NOTE: Vercel frontend is deployed (e.g., to "https://your-app-name.vercel.app")
+// and the Render backend is deployed (e.g., to "https://qa-development-site.onrender.com")
+
+// ---------- BASE API URL: Use Render's URL when deployed, or localhost for local testing. ----------
 const API_BASE_URL =
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
-    : "https://qa-development-site.onrender.com";
+    : "https://qa-development-site.onrender.com"; // Your deployed backend URL
 
 console.log("🔗 API Base URL:", API_BASE_URL);
 
-// ---------- HOME PAGE ----------
+// ---------- HOME PAGE (Form Submission) ----------
 function HomePage({ email, onLogout }) {
   const [personName, setPersonName] = useState("");
   const [personEmail, setPersonEmail] = useState(email || "");
@@ -33,7 +38,8 @@ function HomePage({ email, onLogout }) {
       const res = await fetch(`${API_BASE_URL}/submit-form`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        // credentials: "include" is generally used for cookies. Fine to keep, but often optional.
+        credentials: "include", 
         body: JSON.stringify({
           name: personName,
           email: personEmail,
@@ -51,89 +57,31 @@ function HomePage({ email, onLogout }) {
       setFormMsg(data.message || "✅ Submitted successfully!");
 
       if ((data.message || "").toLowerCase().includes("success")) {
+        // Clear non-email fields on success
         setPersonName("");
         setPersonPhone("");
         setPersonGender("");
       }
     } catch (err) {
       console.error("❌ Error submitting form:", err);
-      setFormMsg("❌ Submission error: " + err.message);
+      setFormMsg("❌ Submission error: " + (err.message || String(err)));
     } finally {
       setLoading(false);
     }
   };
-  // Change this for local vs deployed
-const BASE_URL = "http://127.0.0.1:8000"; // local testing
-// const BASE_URL = "https://qa-development-site.onrender.com"; // when deployed
-
-// ----- Login -----
-async function handleLogin(event) {
-  event.preventDefault();
-
-  const email = document.getElementById("loginEmail").value;
-  const password = document.getElementById("loginPassword").value;
-
-  try {
-    const response = await fetch(`${BASE_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      alert(`❌ ${result.detail || "Login failed"}`);
-    } else {
-      alert(`✅ ${result.message}`);
-      console.log("Login API:", result);
-    }
-  } catch (error) {
-    alert("❌ Failed to connect to server. Please check backend is running.");
-    console.error("Login Error:", error);
-  }
-}
-
-// ----- Form Submit -----
-async function handleFormSubmit(event) {
-  event.preventDefault();
-
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
-  const phone = document.getElementById("phone").value;
-  const gender = document.getElementById("gender").value;
-
-  try {
-    const response = await fetch(`${BASE_URL}/submit-form`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, phone, gender }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      alert(`❌ ${result.detail || "Form submission failed"}`);
-    } else {
-      alert(`✅ ${result.message}`);
-      console.log("Form API:", result);
-    }
-  } catch (error) {
-    alert("❌ Failed to connect to server. Please check backend is running.");
-    console.error("Form Submit Error:", error);
-  }
-}
-
 
   // Optional Debug Button
   const handleFetchAll = async () => {
     try {
+      // NOTE: This route should be protected in a real app
       const res = await fetch(`${API_BASE_URL}/all-users`, { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       console.log("👥 All users:", data);
       alert(`Total users found: ${data.data?.length || 0}`);
     } catch (err) {
       alert("Error fetching users: " + err.message);
+      console.error("❌ Fetch All Error:", err);
     }
   };
 
@@ -197,6 +145,7 @@ async function handleFormSubmit(event) {
               opacity: loading ? 0.6 : 1,
               pointerEvents: loading ? "none" : "auto",
             }}
+            disabled={loading}
           >
             {loading ? "Submitting..." : "Submit"}
           </button>
@@ -233,7 +182,7 @@ async function handleFormSubmit(event) {
   );
 }
 
-// ---------- MAIN APP ----------
+// ---------- MAIN APP (Login/Logout) ----------
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -268,7 +217,7 @@ function App() {
       }
     } catch (err) {
       console.error("❌ Login Error:", err);
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + (err.message || "Failed to connect to server."));
     } finally {
       setLoading(false);
     }
@@ -325,6 +274,7 @@ function App() {
               opacity: loading ? 0.6 : 1,
               pointerEvents: loading ? "none" : "auto",
             }}
+            disabled={loading}
           >
             {loading ? "Logging in..." : "Login"}
           </button>
@@ -347,7 +297,7 @@ function App() {
   );
 }
 
-// ---------- STYLES ----------
+// ---------- STYLES (Kept as is) ----------
 const outerContainer = {
   minHeight: "100vh",
   display: "flex",
