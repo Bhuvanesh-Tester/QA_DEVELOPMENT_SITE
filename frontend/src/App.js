@@ -2,13 +2,13 @@ import React, { useState } from "react";
 
 // ---------- BASE API URL ----------
 const API_BASE_URL =
-  window.location.hostname === "localhost"
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
     : "https://qa-development-site.onrender.com";
 
 console.log("🔗 API Base URL:", API_BASE_URL);
 
-// ---------- CHILD COMPONENT ----------
+// ---------- HOME PAGE ----------
 function HomePage({ email, onLogout }) {
   const [personName, setPersonName] = useState("");
   const [personEmail, setPersonEmail] = useState(email || "");
@@ -19,6 +19,7 @@ function HomePage({ email, onLogout }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!personName || !personEmail || !personPhone || !personGender) {
       setFormMsg("⚠️ All fields are required!");
       return;
@@ -28,12 +29,11 @@ function HomePage({ email, onLogout }) {
     setFormMsg("Submitting...");
 
     try {
-      console.log("📡 Sending POST request to:", `${API_BASE_URL}/submit-form`);
+      console.log("📡 Sending POST to:", `${API_BASE_URL}/submit-form`);
       const res = await fetch(`${API_BASE_URL}/submit-form`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: personName,
           email: personEmail,
@@ -42,8 +42,12 @@ function HomePage({ email, onLogout }) {
         }),
       });
 
+      console.log("📥 Response:", res);
       const data = await res.json();
-      console.log("✅ Response received:", data);
+
+      if (!res.ok) throw new Error(data.detail || "Unknown error");
+
+      console.log("✅ Form submission response:", data);
       setFormMsg(data.message || "✅ Submitted successfully!");
 
       if ((data.message || "").toLowerCase().includes("success")) {
@@ -52,19 +56,81 @@ function HomePage({ email, onLogout }) {
         setPersonGender("");
       }
     } catch (err) {
-      console.error("❌ Submission Error:", err);
-      setFormMsg("❌ Error submitting form: " + err.message);
+      console.error("❌ Error submitting form:", err);
+      setFormMsg("❌ Submission error: " + err.message);
     } finally {
       setLoading(false);
     }
   };
+  // Change this for local vs deployed
+const BASE_URL = "http://127.0.0.1:8000"; // local testing
+// const BASE_URL = "https://qa-development-site.onrender.com"; // when deployed
 
-  // Fetch all users (for debug)
+// ----- Login -----
+async function handleLogin(event) {
+  event.preventDefault();
+
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
+
+  try {
+    const response = await fetch(`${BASE_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert(`❌ ${result.detail || "Login failed"}`);
+    } else {
+      alert(`✅ ${result.message}`);
+      console.log("Login API:", result);
+    }
+  } catch (error) {
+    alert("❌ Failed to connect to server. Please check backend is running.");
+    console.error("Login Error:", error);
+  }
+}
+
+// ----- Form Submit -----
+async function handleFormSubmit(event) {
+  event.preventDefault();
+
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const phone = document.getElementById("phone").value;
+  const gender = document.getElementById("gender").value;
+
+  try {
+    const response = await fetch(`${BASE_URL}/submit-form`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, phone, gender }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert(`❌ ${result.detail || "Form submission failed"}`);
+    } else {
+      alert(`✅ ${result.message}`);
+      console.log("Form API:", result);
+    }
+  } catch (error) {
+    alert("❌ Failed to connect to server. Please check backend is running.");
+    console.error("Form Submit Error:", error);
+  }
+}
+
+
+  // Optional Debug Button
   const handleFetchAll = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/all-users`);
+      const res = await fetch(`${API_BASE_URL}/all-users`, { credentials: "include" });
       const data = await res.json();
-      console.log("All users:", data);
+      console.log("👥 All users:", data);
       alert(`Total users found: ${data.data?.length || 0}`);
     } catch (err) {
       alert("Error fetching users: " + err.message);
@@ -72,26 +138,8 @@ function HomePage({ email, onLogout }) {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #ACB6E5 0%, #74ebd5 100%)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 12,
-          padding: 28,
-          boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
-          width: "100%",
-          maxWidth: 480,
-        }}
-      >
+    <div style={outerContainer}>
+      <div style={formContainer}>
         <h2 style={{ textAlign: "center", marginBottom: 20, color: "#333" }}>
           Person Details Form
         </h2>
@@ -169,7 +217,7 @@ function HomePage({ email, onLogout }) {
 
         <button
           onClick={onLogout}
-          style={{ ...buttonStyle, background: "#f66", color: "#fff", marginTop: 20 }}
+          style={{ ...buttonStyle, background: "#f44336", color: "#fff", marginTop: 20 }}
         >
           Logout
         </button>
@@ -185,7 +233,7 @@ function HomePage({ email, onLogout }) {
   );
 }
 
-// ---------- MAIN APP COMPONENT ----------
+// ---------- MAIN APP ----------
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -199,23 +247,28 @@ function App() {
     setMessage("Checking credentials...");
 
     try {
-      console.log("📡 Sending POST request to:", `${API_BASE_URL}/login`);
+      console.log("📡 Sending POST to:", `${API_BASE_URL}/login`);
       const res = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("📥 Login Response:", res);
       const data = await res.json();
-      console.log("✅ Login response:", data);
+
+      if (!res.ok) throw new Error(data.detail || "Login failed");
+
+      console.log("✅ Login Success:", data);
       setMessage(data.message);
 
-      if (data.message === "Login successful!") {
-        setTimeout(() => setLoggedIn(true), 300);
+      if ((data.message || "").toLowerCase().includes("success")) {
+        setTimeout(() => setLoggedIn(true), 400);
       }
     } catch (err) {
       console.error("❌ Login Error:", err);
-      setMessage("❌ Error connecting to server: " + err.message);
+      setMessage("❌ " + err.message);
     } finally {
       setLoading(false);
     }
@@ -231,26 +284,8 @@ function App() {
   if (loggedIn) return <HomePage email={email} onLogout={handleLogout} />;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%)",
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 12,
-          padding: 28,
-          boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
-          width: "100%",
-          maxWidth: 420,
-        }}
-      >
+    <div style={outerContainer}>
+      <div style={loginContainer}>
         <div style={{ textAlign: "center", marginBottom: 14 }}>
           <img
             src="https://img.icons8.com/fluency/96/000000/user-male-circle.png"
@@ -299,7 +334,7 @@ function App() {
           <p
             style={{
               marginTop: 12,
-              color: message.includes("success") ? "green" : "red",
+              color: message.toLowerCase().includes("success") ? "green" : "red",
               textAlign: "center",
               fontWeight: 600,
             }}
@@ -313,15 +348,41 @@ function App() {
 }
 
 // ---------- STYLES ----------
+const outerContainer = {
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%)",
+  padding: 20,
+};
+
+const loginContainer = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 28,
+  boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
+  width: "100%",
+  maxWidth: 420,
+};
+
+const formContainer = {
+  background: "#fff",
+  borderRadius: 12,
+  padding: 28,
+  boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
+  width: "100%",
+  maxWidth: 480,
+};
+
 const inputStyle = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 8,
-  border: "1px solid #ddd",
+  border: "1px solid #ccc",
   marginBottom: 12,
-  boxSizing: "border-box",
-  outline: "none",
   fontSize: 15,
+  outline: "none",
 };
 
 const labelStyle = {
