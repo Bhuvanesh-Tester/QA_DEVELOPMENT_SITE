@@ -1,23 +1,19 @@
 # render.yaml
-
 services:
   - type: web
-    name: your-fastapi-backend
+    name: qa-development-site-backend
     env: python
-    # Set the Python version explicitly to 3.11.9 to resolve the bcrypt/passlib
-    # compatibility issue with newer Python versions (like 3.13).
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      # Your existing SUPABASE and other environment variables should also be listed here:
       - key: SUPABASE_URL
-        value: <your-supabase-url>
+        sync: false
       - key: SUPABASE_KEY
-        value: <your-supabase-key>
-      # Add other necessary variables here...
-    
-    # This command installs your dependencies from requirements.txt
-    buildCommand: pip install -r requirements.txt
-    
-    # This command starts your FastAPI application using uvicorn/gunicorn
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+        sync: false
+      - key: ROOT_PATH
+        value: ""
+    healthCheckPath: /
+    autoDeploy: true

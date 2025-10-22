@@ -2,10 +2,13 @@ import React, { useState } from "react";
 
 // --- Configuration ---
 // The confirmed, permanent URL for your deployed Render backend.
+// !!! IMPORTANT: REPLACE THIS with the EXACT URL of your live Render service.
+const RENDER_API_URL = "https://qa-development-site.onrender.com"; 
+
 const API_BASE_URL =
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://127.0.0.1:8000"
-    : "https://qa-development-site.onrender.com"; // <-- Your Confirmed Live Render URL
+    ? "http://127.0.0.1:8000" 
+    : RENDER_API_URL;         
 
 console.log("🔗 API Base URL:", API_BASE_URL);
 
@@ -13,11 +16,10 @@ console.log("🔗 API Base URL:", API_BASE_URL);
 // ---------- UTILITY: Fetch with Exponential Backoff and Retry (Ensures reliability) ----------
 // -------------------------------------------------------------------------------------------------
 const fetchWithRetry = async (url, options, retries = 5) => {
-  // Add a small initial delay to prevent immediate failure in slow-starting environments like Render free tier
+  // Add a small initial delay to help wake up Render free tier service
   await new Promise(resolve => setTimeout(resolve, 500)); 
   
   for (let i = 0; i < retries; i++) {
-    // New: Logging the URL being attempted for better debugging
     console.log(`[NETWORK] Attempting to fetch URL: ${url}`);
     try {
       const response = await fetch(url, options);
@@ -57,18 +59,23 @@ function HomePage({ email, onLogout }) {
     setFormMsg("Submitting...");
 
     try {
-      // API call visible in Network tab
-      console.log("📡 Sending POST to:", `${API_BASE_URL}/submit-form`); 
+      // CORRECTED ENDPOINT: /submit-report
+      const REPORT_ENDPOINT = `${API_BASE_URL}/submit-report`; 
+      console.log("📡 Sending POST to:", REPORT_ENDPOINT); 
       
-      const res = await fetchWithRetry(`${API_BASE_URL}/submit-form`, {
+      const res = await fetchWithRetry(REPORT_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", 
+        // Data payload must match the QaReportIn model fields in main.py
         body: JSON.stringify({
-          name: personName,
-          email: personEmail,
-          phone: personPhone,
-          gender: personGender,
+          // Using hardcoded values for the QA Report that don't come from the simple form
+          project_name: "User Detail Collection", 
+          test_case_id: "USER-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+          status: "Pass", 
+          // Combining user details into the 'notes' field
+          notes: `Name: ${personName}, Phone: ${personPhone}, Gender: ${personGender}`, 
+          tested_by: personEmail, // Using the logged-in user's email
         }),
       });
 
@@ -88,7 +95,7 @@ function HomePage({ email, onLogout }) {
       console.error("❌ Error submitting form:", err);
       let errorMsg = String(err.message);
       if (errorMsg.includes('Failed to fetch')) {
-        errorMsg = `Network Error: Could not reach backend. Please check your Render deployment status and ensure the URL (${API_BASE_URL}/submit-form) is correct.`;
+        errorMsg = `Network Error: Could not reach backend. Please check your Render deployment status and ensure the URL (${API_BASE_URL}/submit-report) is correct.`;
       }
       setFormMsg("❌ " + errorMsg);
     } finally {
@@ -98,15 +105,16 @@ function HomePage({ email, onLogout }) {
 
   const handleFetchAll = async () => {
     try {
-      const res = await fetchWithRetry(`${API_BASE_URL}/all-users`, { credentials: "include" });
+      // CORRECTED ENDPOINT: /all-reports
+      const res = await fetchWithRetry(`${API_BASE_URL}/all-reports`, { credentials: "include" }); 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      console.log("👥 All users (from DB via API):", data.data);
-      console.log(`Total person details found: ${data.data?.length || 0}`);
+      console.log("👥 All reports (from DB via API):", data.data);
+      console.log(`Total reports found: ${data.data?.length || 0}`);
       
     } catch (err) {
       console.error("❌ Fetch All Error:", err);
-      setFormMsg("❌ Error fetching users: " + err.message);
+      setFormMsg("❌ Error fetching reports: " + err.message);
     }
   };
 
@@ -118,7 +126,7 @@ function HomePage({ email, onLogout }) {
         </h2>
 
         <p style={{textAlign: 'center', color: '#5cb85c', fontWeight: 'bold', borderBottom: '2px solid #5cb85c', paddingBottom: 10}}>
-            Welcome, {email}!
+          Welcome, {email}!
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -204,7 +212,7 @@ function HomePage({ email, onLogout }) {
           onClick={handleFetchAll}
           style={{ ...buttonStyle, background: "#007bff", color: "#fff", marginTop: 10 }}
         >
-          Fetch All Stored Data (Check Console)
+          Fetch All Stored Reports (Check Console)
         </button>
       </div>
     </div>
@@ -230,7 +238,6 @@ const App = () => {
     setMessage(isRegistering ? "Registering user..." : "Checking credentials...");
 
     try {
-      // API call visible in Network tab
       console.log(`📡 Sending POST to: ${API_BASE_URL}${endpoint}`); 
       
       const res = await fetchWithRetry(`${API_BASE_URL}${endpoint}`, {
@@ -323,6 +330,7 @@ const App = () => {
               ...buttonStyle,
               opacity: loading ? 0.6 : 1,
               pointerEvents: loading ? "none" : "auto",
+              background: isRegistering ? "#007bff" : "#4dd0a9",
             }}
             disabled={loading}
           >
@@ -356,7 +364,7 @@ const App = () => {
           }}
           style={{
             ...buttonStyle,
-            background: isRegistering ? "#007bff" : "#5cb85c", 
+            background: isRegistering ? "#5cb85c" : "#007bff", 
             marginTop: 15,
             fontSize: 14,
           }}
