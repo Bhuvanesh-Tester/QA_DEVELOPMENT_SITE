@@ -1,16 +1,21 @@
 import React, { useState } from "react";
 
 // --- Configuration ---
-// The confirmed, permanent URL for your deployed Render backend.
-// !!! IMPORTANT: REPLACE THIS with the EXACT URL of your live Render service.
-const RENDER_API_URL = "https://qa-development-site.onrender.com"; 
+// API Configuration with better error handling and connection management
+const RENDER_API_URL = "https://qa-development-site.onrender.com"; // Production URL
+const LOCAL_API_URL = "http://127.0.0.1:8000"; // Development URL
 
-const API_BASE_URL =
-  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://127.0.0.1:8000" 
-    : RENDER_API_URL;         
+const API_BASE_URL = process.env.NODE_ENV === "production" ? RENDER_API_URL : LOCAL_API_URL;
 
+// Log the environment and API URL for debugging
+console.log("🌍 Environment:", process.env.NODE_ENV);
 console.log("🔗 API Base URL:", API_BASE_URL);
+
+// Verify API connection on startup
+fetch(`${API_BASE_URL}/`)
+  .then(response => response.json())
+  .then(data => console.log("✅ Backend connection verified:", data))
+  .catch(error => console.error("❌ Backend connection failed:", error));
 
 // -------------------------------------------------------------------------------------------------
 // ---------- UTILITY: Fetch with Exponential Backoff and Retry (Ensures reliability) ----------
