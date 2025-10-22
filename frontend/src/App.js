@@ -3,19 +3,36 @@ import React, { useState } from "react";
 // --- Configuration ---
 // API Configuration with better error handling and connection management
 const RENDER_API_URL = "https://qa-development-site.onrender.com"; // Production URL
-const LOCAL_API_URL = "http://127.0.0.1:8000"; // Development URL
+const LOCAL_API_URL = "http://127.0.0.1:10000"; // Development URL (matching backend port)
 
 const API_BASE_URL = process.env.NODE_ENV === "production" ? RENDER_API_URL : LOCAL_API_URL;
+
+// Default fetch options for all API calls
+const defaultFetchOptions = {
+  credentials: 'include',  // Important: This enables sending cookies
+  headers: {
+    'Content-Type': 'application/json',
+  },
+};
 
 // Log the environment and API URL for debugging
 console.log("🌍 Environment:", process.env.NODE_ENV);
 console.log("🔗 API Base URL:", API_BASE_URL);
 
-// Verify API connection on startup
-fetch(`${API_BASE_URL}/`)
-  .then(response => response.json())
+// Verify API connection on startup with proper options
+fetch(`${API_BASE_URL}/`, {
+  ...defaultFetchOptions,
+  method: 'GET',
+})
+  .then(response => {
+    console.log("🔄 Backend Response Status:", response.status);
+    return response.json();
+  })
   .then(data => console.log("✅ Backend connection verified:", data))
-  .catch(error => console.error("❌ Backend connection failed:", error));
+  .catch(error => {
+    console.error("❌ Backend connection failed:", error);
+    console.log("🔍 Check if backend is running and CORS is configured correctly");
+  });
 
 // -------------------------------------------------------------------------------------------------
 // ---------- UTILITY: Fetch with Exponential Backoff and Retry (Ensures reliability) ----------

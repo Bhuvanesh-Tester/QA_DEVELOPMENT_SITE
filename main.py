@@ -114,11 +114,18 @@ async def shutdown_event():
 # Apply CORS Middleware with more detailed configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "https://qa-development-site.onrender.com",
+        "https://qa-development-site-frontend.onrender.com",  # If frontend is on a different domain
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
-    expose_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    expose_headers=["Content-Length"],
+    max_age=86400  # Cache CORS config for 24 hours
 )
 
 # --- Utility Functions ---
@@ -236,25 +243,43 @@ async def register_user(user: UserIn):
 @app.post("/login", response_model=MessageResponse)
 async def login_user(user: UserIn):
     """Authenticates a user."""
-    check_db_connection()
-    response = supabase.table(USERS_TABLE).select("password").eq("email", user.email).execute()
-    
-    if not response.data: 
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
-    
-    stored_password = response.data[0]["password"]
-    
     try:
-        # Check if the provided password matches the stored hash
-        if isinstance(stored_password, str):
-            stored_password = stored_password.encode('utf-8')
-        if bcrypt.checkpw(user.password.encode('utf-8'), stored_password):
-            return {"message": f"Login successful for user: {user.email}"}
-    except (ValueError, TypeError):
-        # If there's an error with the hash, return invalid credentials
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
-    
-    raise HTTPException(status_code=401, detail="Invalid email or password.")
+        print(f"Login attempt for email: {user.email}")
+        check_db_connection()
+        
+        # Query for user
+        print("Querying database for user...")
+        response = supabase.table(USERS_TABLE).select("password").eq("email", user.email).execute()
+        
+        if not response.data:
+            print(f"User not found: {user.email}")
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        
+        stored_password = response.data[0]["password"]
+        print("Retrieved stored password hash")
+        
+        try:
+            # Ensure password is in bytes format
+            if isinstance(stored_password, str):
+                stored_password = stored_password.encode('utf-8')
+            user_password = user.password.encode('utf-8')
+            
+            # Verify password
+            if bcrypt.checkpw(user_password, stored_password):
+                print(f"Login successful for user: {user.email}")
+                return {"message": f"Login successful for user: {user.email}"}
+            else:
+                print(f"Password mismatch for user: {user.email}")
+                raise HTTPException(status_code=401, detail="Invalid email or password.")
+        except Exception as e:
+            print(f"Error during password verification: {str(e)}")
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
+            
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Unexpected error during login: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 
 @app.post("/submit-report", response_model=MessageResponse)
