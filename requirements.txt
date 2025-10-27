@@ -9,3 +9,4 @@ pydantic>=2.0.0
 email-validator
 supabase
 bcrypt
+requests
