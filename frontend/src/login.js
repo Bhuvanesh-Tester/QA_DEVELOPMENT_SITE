@@ -1,6 +1,16 @@
 // frontend/src/login.js
 
 /**
+ * Determine API base URL based on environment
+ * Uses localhost in development, Render URL in production
+ */
+const getApiBaseUrl = () => {
+  return window.location.hostname === "localhost"
+    ? "http://localhost:8003" // Local FastAPI
+    : "https://qa-development-site.onrender.com"; // Replace with your Render backend URL
+};
+
+/**
  * Simple email validation
  */
 const isValidEmail = (email) => /\S+@\S+\.\S+/.test(email);
@@ -27,12 +37,13 @@ const handleLoginError = (error) => {
 /**
  * Login user
  */
-export const loginUser = async (email, password, apiBaseUrl) => {
+export const loginUser = async (email, password) => {
+  const apiBaseUrl = getApiBaseUrl();
+  console.log("🌐 API Base URL:", apiBaseUrl);
+  console.log("➡️ Final login URL:", `${apiBaseUrl}/login`);
+
   if (!email || !password) throw new Error("Email and password are required");
   if (!isValidEmail(email)) throw new Error("Invalid email format");
-  console.log("API Base URL:", apiBaseUrl);
-  console.log("Final login URL:", `${apiBaseUrl}/login`);
-
 
   try {
     const response = await fetch(`${apiBaseUrl}/login`, {
@@ -46,8 +57,10 @@ export const loginUser = async (email, password, apiBaseUrl) => {
     });
 
     const data = await handleLoginResponse(response);
+    console.log("✅ Login successful:", data);
     return { success: true, message: data.message, email: data.user.email };
   } catch (error) {
+    console.error("❌ Login error:", error);
     throw new Error(handleLoginError(error));
   }
 };

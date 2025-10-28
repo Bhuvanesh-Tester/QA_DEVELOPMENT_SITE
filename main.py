@@ -11,8 +11,10 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://qa-development-site.vercel.app/",
+    "https://qa-development-site.vercel.app",  # ✅ remove trailing slash
+    "https://qa-development-site.onrender.com",  # ✅ your Render backend URL
 ]
+
 
 app.add_middleware(
     CORSMiddleware,
