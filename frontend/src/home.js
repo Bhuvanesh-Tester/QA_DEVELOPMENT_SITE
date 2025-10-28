@@ -1,4 +1,3 @@
-// frontend/src/Home.js
 import React, { useState } from "react";
 import './home.css';
 
@@ -13,8 +12,11 @@ function Home({ email }) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Make sure this is your deployed FastAPI backend URL
-  const API_BASE_URL = "https://qa-development-site.onrender.com";
+  // Dynamic API URL
+  const API_BASE_URL =
+    window.location.hostname === "localhost"
+      ? "http://localhost:8003"
+      : "https://qa-development-site.onrender.com";
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -33,15 +35,12 @@ function Home({ email }) {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_BASE_URL}/submit`, { // no trailing slash
+      const response = await fetch(`${API_BASE_URL}/submit`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, email }),
       });
 
-      // Handle errors
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || `Submission failed: ${response.status}`);
@@ -62,37 +61,11 @@ function Home({ email }) {
       {email && <p>Logged in as: {email}</p>}
 
       <form className="home-form" onSubmit={handleSubmit}>
-        <input
-          type="text"
-          name="name"
-          placeholder="Full Name"
-          value={formData.name}
-          onChange={handleChange}
-        />
-        <input
-          type="number"
-          name="age"
-          placeholder="Age"
-          value={formData.age}
-          onChange={handleChange}
-        />
-        <input
-          type="text"
-          name="phone"
-          placeholder="Phone Number"
-          value={formData.phone}
-          onChange={handleChange}
-        />
-        <input
-          type="text"
-          name="address"
-          placeholder="Address"
-          value={formData.address}
-          onChange={handleChange}
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "Submitting..." : "Submit"}
-        </button>
+        <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} />
+        <input type="number" name="age" placeholder="Age" value={formData.age} onChange={handleChange} />
+        <input type="text" name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
+        <input type="text" name="address" placeholder="Address" value={formData.address} onChange={handleChange} />
+        <button type="submit" disabled={loading}>{loading ? "Submitting..." : "Submit"}</button>
       </form>
 
       {message && <p className="form-message">{message}</p>}
