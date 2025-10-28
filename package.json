@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "lucide-react": "^0.546.0"
+    "lucide-react": "^0.546.0",
+    "react-router-dom": "^7.9.4",
+    "react-tsparticles": "^2.12.2",
+    "tsparticles": "^3.9.1"
   }
 }

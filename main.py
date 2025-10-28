@@ -1,16 +1,17 @@
-# main.py
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-import requests
+from supabase import create_client, Client
+import os
 
 app = FastAPI()
 
 # -----------------------------
-# CORS setup (React frontend)
+# CORS setup
 # -----------------------------
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://qa-development-site.vercel.app/",
 ]
 
 app.add_middleware(
@@ -22,71 +23,45 @@ app.add_middleware(
 )
 
 # -----------------------------
-# Supabase REST credentials
+# Supabase setup
 # -----------------------------
 SUPABASE_URL = "https://qfdhtoxzdnnfbnhkzkyb.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZGh0b3h6ZG5uZmJuaGt6a3liIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDQ4MjUzMiwiZXhwIjoyMDc2MDU4NTMyfQ.GlYjWYOYQB3f_IF7dfjO8M8wWgQy5s-Xcrz1sEXQqno"
+USERS_TABLE = "users"
 
-# -----------------------------
-# Root route
-# -----------------------------
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
 @app.get("/")
-def home():
-    return {"message": "Backend is live!"}
+def root():
+    print("✅ FastAPI root route called")
+    return {"message": "FastAPI is running on port 8003"}
 
 # -----------------------------
-# Login route with debug prints
+# Login route
 # -----------------------------
 @app.post("/login")
 async def login(request: Request):
+    print("🔹 FastAPI /login endpoint called")
     try:
         data = await request.json()
         email = data.get("email")
         password = data.get("password")
 
-        # Debug print: show received credentials
-        print("Login attempt received:")
-        print("Email:", email)
-        print("Password:", password)
-
         if not email or not password:
             raise HTTPException(status_code=400, detail="Email and password are required")
 
-        # Fetch user from Supabase users table
-        res = requests.get(
-            f"{SUPABASE_URL}/rest/v1/users?email=eq.{email}",
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json"
-            },
-            timeout=10
-        )
+        # Fetch user from Supabase
+        response = supabase.table(USERS_TABLE).select("*").eq("email", email).execute()
 
-        # Debug print: Supabase response
-        print("Supabase response status code:", res.status_code)
-        print("Supabase response JSON:", res.json())
-
-        if res.status_code != 200:
-            raise HTTPException(status_code=res.status_code, detail="Failed to fetch user")
-
-        users = res.json()
-
-        if not users:
-            print("No user found with this email")
+        if not response.data:
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        user = users[0]
+        user = response.data[0]
 
-        # Debug print: password in database vs input
-        print("Password in database:", user.get("password"))
-        print("Password entered:", password)
-
+        # Simple password check (⚠️ ideally hash passwords)
         if user.get("password") != password:
-            print("Password mismatch")
             raise HTTPException(status_code=401, detail="Invalid email or password")
-
-        print("Login successful for user:", email)
 
         return {
             "message": "Login successful",
@@ -100,4 +75,6 @@ async def login(request: Request):
         raise
     except Exception as e:
         print("Unexpected error:", e)
-        raise HTTPException(status_code=400, detail="Unexpected server error")
+        raise HTTPException(status_code=500, detail="Unexpected server error")
+
+
