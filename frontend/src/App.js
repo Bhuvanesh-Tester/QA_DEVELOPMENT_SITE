@@ -6,7 +6,7 @@ function App() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  const API_BASE_URL = "http://localhost:8001"; // your FastAPI backend URL
+  const API_BASE_URL = "http://localhost:8003"; // hardcoded for local use
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -23,16 +23,16 @@ function App() {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "50px auto", fontFamily: "Arial" }}>
+    <div className="login-container">
       <h2>Login</h2>
-      <form onSubmit={handleLogin}>
+      <form onSubmit={handleLogin} className="login-form">
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
+          className="login-input"
         />
         <input
           type="password"
@@ -40,13 +40,11 @@ function App() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
+          className="login-input"
         />
-        <button type="submit" style={{ width: "100%", padding: "10px" }}>
-          Login
-        </button>
+        <button type="submit" className="login-button">Login</button>
       </form>
-      <p style={{ marginTop: "10px", color: "red" }}>{message}</p>
+      {message && <p className="error-message">{message}</p>}
     </div>
   );
 }
