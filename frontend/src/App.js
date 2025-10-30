@@ -1,15 +1,33 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { loginUser } from "./login";
 import Home from "./home";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
+  // Check sessionStorage on initial load
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return sessionStorage.getItem("isLoggedIn") === "true";
+  });
+  
+  const [userEmail, setUserEmail] = useState(() => {
+    return sessionStorage.getItem("userEmail") || "";
+  });
+  
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const API_BASE_URL = "http://localhost:8003";
+
+  // Save to sessionStorage whenever login state changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      sessionStorage.setItem("isLoggedIn", "true");
+      sessionStorage.setItem("userEmail", userEmail);
+    } else {
+      sessionStorage.removeItem("isLoggedIn");
+      sessionStorage.removeItem("userEmail");
+    }
+  }, [isLoggedIn, userEmail]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -31,6 +49,9 @@ function App() {
     setEmail("");
     setPassword("");
     setMessage("");
+    // Clear session storage
+    sessionStorage.removeItem("isLoggedIn");
+    sessionStorage.removeItem("userEmail");
   };
 
   if (isLoggedIn) {

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import './home.css';
 
-function Home({ email }) {
+function Home({ email, onLogout }) {
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -57,15 +57,46 @@ function Home({ email }) {
 
   return (
     <div className="home-container">
-      <h1>Welcome Home</h1>
-      {email && <p>Logged in as: {email}</p>}
+      <div className="header">
+        <h1>Welcome Home</h1>
+        {email && <p className="user-email">Logged in as: {email}</p>}
+        <button onClick={onLogout} className="logout-button">
+          Logout
+        </button>
+      </div>
 
       <form className="home-form" onSubmit={handleSubmit}>
-        <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} />
-        <input type="number" name="age" placeholder="Age" value={formData.age} onChange={handleChange} />
-        <input type="text" name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
-        <input type="text" name="address" placeholder="Address" value={formData.address} onChange={handleChange} />
-        <button type="submit" disabled={loading}>{loading ? "Submitting..." : "Submit"}</button>
+        <input 
+          type="text" 
+          name="name" 
+          placeholder="Full Name" 
+          value={formData.name} 
+          onChange={handleChange} 
+        />
+        <input 
+          type="number" 
+          name="age" 
+          placeholder="Age" 
+          value={formData.age} 
+          onChange={handleChange} 
+        />
+        <input 
+          type="text" 
+          name="phone" 
+          placeholder="Phone Number" 
+          value={formData.phone} 
+          onChange={handleChange} 
+        />
+        <input 
+          type="text" 
+          name="address" 
+          placeholder="Address" 
+          value={formData.address} 
+          onChange={handleChange} 
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? "Submitting..." : "Submit"}
+        </button>
       </form>
 
       {message && <p className="form-message">{message}</p>}
