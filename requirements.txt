@@ -10,3 +10,6 @@ email-validator
 supabase
 bcrypt
 requests
+python-multipart
+pandas
+openpyxl
