@@ -1,29 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { loginUser, registerUser } from "./login";
+import { loginUser } from "./login";
 import Home from "./home";
 
 function App() {
-  // Check sessionStorage on initial load
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return sessionStorage.getItem("isLoggedIn") === "true";
   });
   
-  const [userEmail, setUserEmail] = useState(() => {
-    return sessionStorage.getItem("userEmail") || "";
+  const [user, setUser] = useState(() => {
+    const savedUser = sessionStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser) : null;
   });
   
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
-  const API_BASE_URL = window.location.hostname === "localhost"
-    ? "http://localhost:8003"
-    : "https://qa-development-site.onrender.com";
-
-  // Show toast notification
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => {
@@ -31,60 +24,26 @@ function App() {
     }, 3000);
   };
 
-  // Save to sessionStorage whenever login state changes
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn && user) {
       sessionStorage.setItem("isLoggedIn", "true");
-      sessionStorage.setItem("userEmail", userEmail);
+      sessionStorage.setItem("user", JSON.stringify(user));
     } else {
       sessionStorage.removeItem("isLoggedIn");
-      sessionStorage.removeItem("userEmail");
+      sessionStorage.removeItem("user");
     }
-  }, [isLoggedIn, userEmail]);
+  }, [isLoggedIn, user]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setMessage("");
 
     try {
-      const user = await loginUser(email, password);
+      const response = await loginUser(email, password);
       setIsLoggedIn(true);
-      setUserEmail(user.email);
+      setUser(response.user);
       setMessage("");
-      showToast("Login successful! Welcome back! 🎉", "success");
-    } catch (error) {
-      setMessage(error.message);
-      showToast(error.message, "error");
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setMessage("");
-
-    if (!name || !email || !password) {
-      setMessage("Please fill in all fields");
-      showToast("Please fill in all fields", "error");
-      return;
-    }
-
-    if (password.length < 6) {
-      setMessage("Password must be at least 6 characters");
-      showToast("Password must be at least 6 characters", "error");
-      return;
-    }
-
-    try {
-      await registerUser(name, email, password);
-      setMessage("Registration successful! Please login.");
-      showToast("Registration successful! Please login 🎉", "success");
-      
-      // Switch to login mode after successful registration
-      setTimeout(() => {
-        setIsRegisterMode(false);
-        setName("");
-        setPassword("");
-      }, 2000);
+      showToast(`Welcome ${response.user.name}! (${response.user.role})`, "success");
     } catch (error) {
       setMessage(error.message);
       showToast(error.message, "error");
@@ -93,50 +52,33 @@ function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    setUserEmail("");
+    setUser(null);
     setEmail("");
     setPassword("");
-    setName("");
     setMessage("");
-    sessionStorage.removeItem("isLoggedIn");
-    sessionStorage.removeItem("userEmail");
-    showToast("Logged out successfully! See you soon! 👋", "info");
+    sessionStorage.clear();
+    showToast("Logged out successfully! 👋", "info");
   };
 
-  const toggleMode = () => {
-    setIsRegisterMode(!isRegisterMode);
-    setMessage("");
-    setEmail("");
-    setPassword("");
-    setName("");
-  };
-
-  if (isLoggedIn) {
-    return <Home email={userEmail} onLogout={handleLogout} />;
+  // All roles use the same Home component but with different access
+  if (isLoggedIn && user) {
+    return <Home user={user} onLogout={handleLogout} />;
   }
 
   return (
     <div style={styles.container}>
       <div style={styles.animatedBackground}></div>
       <div style={styles.card}>
-        <h2 style={styles.title}>
-          {isRegisterMode ? "Create Account" : "Welcome Back"}
-        </h2>
+        <div style={styles.logoContainer}>
+          <div style={styles.logo}>🔐</div>
+          <h2 style={styles.title}>Compliance Audit System</h2>
+          <p style={styles.subtitle}>ISO Standards & Control Checks</p>
+        </div>
         
-        <form onSubmit={isRegisterMode ? handleRegister : handleLogin} style={styles.form}>
-          {isRegisterMode && (
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              style={styles.input}
-            />
-          )}
+        <form onSubmit={handleLogin} style={styles.form}>
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Email Address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -151,23 +93,22 @@ function App() {
             style={styles.input}
           />
           <button type="submit" style={styles.button}>
-            {isRegisterMode ? "Register" : "Login"}
+            Sign In
           </button>
         </form>
         
         {message && <p style={styles.message}>{message}</p>}
         
-        <div style={styles.toggleContainer}>
-          <p style={styles.toggleText}>
-            {isRegisterMode ? "Already have an account?" : "Don't have an account?"}
+        <div style={styles.infoBox}>
+          <p style={styles.infoTitle}>Test Credentials:</p>
+          <p style={styles.infoText}>
+            <strong>Admin:</strong> admin@system.com / Admin@123<br/>
+            <strong>Supervisor:</strong> supervisor@test.com / Super@123<br/>
+            <strong>QA/QC:</strong> qa@test.com / QA@123
           </p>
-          <button onClick={toggleMode} style={styles.toggleButton}>
-            {isRegisterMode ? "Login here" : "Register here"}
-          </button>
         </div>
       </div>
 
-      {/* Toast Notification */}
       {toast.show && (
         <div style={{
           ...styles.toast,
@@ -201,7 +142,7 @@ const styles = {
     position: "absolute",
     width: "200%",
     height: "200%",
-    background: "linear-gradient(270deg, #00aaff, #0047b3, #00ffea, #0047b3)",
+    background: "linear-gradient(270deg, #667eea, #764ba2, #667eea, #764ba2)",
     backgroundSize: "800% 800%",
     animation: "gradientAnimation 15s ease infinite",
     zIndex: 0,
@@ -209,69 +150,88 @@ const styles = {
   card: {
     position: "relative",
     zIndex: 10,
-    background: "rgba(255, 255, 255, 0.15)",
+    background: "rgba(255, 255, 255, 0.95)",
     backdropFilter: "blur(10px)",
-    borderRadius: "16px",
+    borderRadius: "20px",
     padding: "50px",
-    minWidth: "350px",
-    boxShadow: "0 8px 40px rgba(0,0,0,0.25)",
+    minWidth: "420px",
+    maxWidth: "500px",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
     textAlign: "center",
-    color: "#fff",
+  },
+  logoContainer: {
+    marginBottom: "30px",
+  },
+  logo: {
+    fontSize: "64px",
+    marginBottom: "10px",
   },
   title: {
-    marginBottom: "30px",
+    marginBottom: "8px",
     fontSize: "28px",
+    fontWeight: "700",
+    color: "#333",
+  },
+  subtitle: {
+    fontSize: "14px",
+    color: "#667eea",
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: "1px",
   },
   form: {
     display: "flex",
     flexDirection: "column",
+    gap: "15px",
+    marginTop: "30px",
   },
   input: {
-    padding: "14px",
-    margin: "12px 0",
-    borderRadius: "8px",
-    border: "none",
+    padding: "16px",
+    borderRadius: "10px",
+    border: "2px solid #e0e0e0",
     outline: "none",
     fontSize: "16px",
+    transition: "all 0.3s",
+    backgroundColor: "white",
   },
   button: {
-    padding: "14px",
-    marginTop: "20px",
-    backgroundColor: "#00aaff",
+    padding: "16px",
+    marginTop: "10px",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "10px",
     fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
-    transition: "0.3s",
+    transition: "all 0.3s",
+    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
   },
   message: {
-    color: "#ffdd57",
+    color: "#dc3545",
     marginTop: "15px",
     fontSize: "14px",
+    fontWeight: "500",
   },
-  toggleContainer: {
-    marginTop: "20px",
-    paddingTop: "20px",
-    borderTop: "1px solid rgba(255, 255, 255, 0.2)",
+  infoBox: {
+    marginTop: "30px",
+    padding: "20px",
+    backgroundColor: "rgba(102, 126, 234, 0.1)",
+    borderRadius: "12px",
+    textAlign: "left",
   },
-  toggleText: {
-    color: "#fff",
-    fontSize: "14px",
-    marginBottom: "10px",
-  },
-  toggleButton: {
-    background: "none",
-    border: "2px solid #fff",
-    color: "#fff",
-    padding: "10px 20px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
+  infoTitle: {
+    fontSize: "12px",
     fontWeight: "600",
-    transition: "0.3s",
+    color: "#667eea",
+    marginBottom: "10px",
+    textTransform: "uppercase",
+  },
+  infoText: {
+    fontSize: "13px",
+    color: "#555",
+    lineHeight: "1.8",
+    margin: 0,
   },
   toast: {
     position: "fixed",
@@ -303,7 +263,6 @@ const styles = {
   },
 };
 
-// Add keyframes for animations
 const styleSheet = document.styleSheets[0];
 if (styleSheet) {
   const keyframes = `
@@ -313,20 +272,12 @@ if (styleSheet) {
     100%{background-position:0% 50%}
   }
   @keyframes slideIn {
-    from {
-      transform: translateX(400px);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
+    from {transform: translateX(400px); opacity: 0;}
+    to {transform: translateX(0); opacity: 1;}
   }`;
   try {
     styleSheet.insertRule(keyframes, styleSheet.cssRules.length);
-  } catch (e) {
-    // Keyframes might already exist
-  }
+  } catch (e) {}
 }
 
 export default App;

@@ -57,7 +57,10 @@ export const loginUser = async (email, password) => {
 
     const data = await handleResponse(response);
     console.log("✅ Login successful:", data);
-    return { success: true, message: data.message, email: data.user.email };
+
+    // ✅ FIXED LINE: return the full user object instead of just the email
+    return { success: true, message: data.message, user: data.user };
+
   } catch (error) {
     console.error("❌ Login error:", error);
     throw new Error(handleError(error));
